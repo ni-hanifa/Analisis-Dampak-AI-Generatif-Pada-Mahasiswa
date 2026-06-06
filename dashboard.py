@@ -1,11 +1,13 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import seaborn as sns
+import matplotlib.pyplot as plt
 import os
 
-# ==========================================
-# 1. KONFIGURASI HALAMAN & CSS PROFESIONAL
-# ==========================================
+# ======================
+# 1. KONFIGURASI HALAMAN
+# ======================
 st.set_page_config(
     page_title="Dashboard Dampak AI - LSP TIK",
     page_icon="📊",
@@ -13,7 +15,6 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Kustomisasi UI agar tampil Clean, White & Blue Corporate Vibe
 st.markdown("""
 <style>
     /* Latar belakang putih bersih */
@@ -33,6 +34,7 @@ st.markdown("""
     .stTabs [data-baseweb="tab-list"] {
         gap: 8px;
         margin-bottom: 20px;
+        flex-wrap: wrap; /* Agar tab tidak terpotong di layar kecil */
     }
     .stTabs [data-baseweb="tab"] {
         height: 45px;
@@ -107,9 +109,9 @@ if df_filtered.empty:
     st.stop()
 
 # ==========================================
-# 4. KEY PERFORMANCE INDICATORS (KPI) - 5 BERDERET
+# 4. KEY PERFORMANCE INDICATORS (KPI) 
 # ==========================================
-# Membuat 5 kolom dengan lebar yang sama
+
 kpi1, kpi2, kpi3, kpi4, kpi5 = st.columns(5)
 
 avg_gpa = df_filtered['Post_Semester_GPA'].mean()
@@ -118,7 +120,7 @@ total_students = len(df_filtered)
 pct_burnout = (len(df_filtered[df_filtered['Burnout_Risk_Level'] == 'High']) / total_students) * 100 if total_students > 0 else 0
 avg_ai_hours = df_filtered['Weekly_GenAI_Hours'].mean()
 
-# Menempatkan tiap metrik ke dalam kolom yang tepat
+# Metric KPI
 kpi1.metric("📚 Rata-rata GPA", f"{avg_gpa:.2f}")
 kpi2.metric("🧠 Skill Retention", f"{avg_skill:.0f}")
 kpi3.metric("⚠️ High Burnout", f"{pct_burnout:.1f}%")
@@ -127,18 +129,20 @@ kpi5.metric("🤖 Avg AI Hours", f"{avg_ai_hours:.1f} Jam")
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# ==========================================
-# 5. KONTEN UTAMA (SISTEM TABS)
-# ==========================================
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
+# ===================
+# 5. KONTEN UTAMA 
+# ===================
+# Menambahkan tab6 ke dalam list
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "📋 1. Overview Demografi", 
     "📈 2. Analisis Dampak AI", 
     "🧠 3. Kesehatan Mental", 
     "📚 4. Retensi Skill", 
-    "⚠️ 5. Profil Risiko"
+    "⚠️ 5. Profil Risiko",
+    "🏛️ 6. Institutional Policy vs GPA"
 ])
 
-# --- TAB 1: OVERVIEW (Bersih, Fokus Gambaran Besar) ---
+
 with tab1:
     st.markdown("### Hierarki Distribusi Mahasiswa")
     st.caption("Visualisasi komposisi demografi mahasiswa berdasarkan Kebijakan Institusi, Bidang Studi, dan Jenjang.")
@@ -148,10 +152,9 @@ with tab1:
     )
     st.plotly_chart(fig_overview, use_container_width=True)
 
-# --- TAB 2: DAMPAK AI (Terintegrasi Heatmap & Data Kinerja) ---
+
 with tab2:
     st.markdown("### Perubahan Performa (GPA) Berdasarkan Intensitas AI")
-    # Grafik Utama
     df_gpa = df_filtered.groupby('AI_User_Segment', observed=False)['GPA_Change'].mean().reset_index()
     fig_gpa = px.bar(
         df_gpa, x='AI_User_Segment', y='GPA_Change', color='AI_User_Segment', text_auto='.3f',
@@ -161,7 +164,6 @@ with tab2:
     
     st.divider()
     
-    # Add-on Terintegrasi (Kiri: Heatmap Korelasi GPA, Kanan: Preview Data)
     col2_1, col2_2 = st.columns([1, 1.2])
     with col2_1:
         st.markdown("**🔍 Korelasi Metrik Belajar & IPK**")
@@ -172,11 +174,11 @@ with tab2:
         st.markdown("**🗄️ Dataset Spesifik Kinerja Mahasiswa**")
         st.dataframe(df_filtered[['Student_ID', 'Major_Category', 'AI_User_Segment', 'Traditional_Study_Hours', 'GPA_Change']].head(50), height=350)
 
-# --- TAB 3: KESEHATAN MENTAL (Burnout & Anxiety) ---
+
 with tab3:
     st.markdown("### Dampak Kebijakan terhadap Psikologis Mahasiswa")
     col3_1, col3_2 = st.columns(2)
-    # Grafik Utama 1
+
     with col3_1:
         df_burnout = df_filtered.groupby(['Institutional_Policy', 'Burnout_Risk_Level'], observed=False).size().reset_index(name='Jumlah')
         fig_burnout = px.bar(
@@ -185,7 +187,7 @@ with tab3:
         )
         fig_burnout.update_layout(barnorm='percent', yaxis_title="Proporsi (%)") 
         st.plotly_chart(fig_burnout, use_container_width=True)
-    # Grafik Utama 2
+
     with col3_2:
         fig_anxiety = px.box(
             df_filtered, x='Institutional_Policy', y='Anxiety_Level_During_Exams', color='Institutional_Policy',
@@ -195,13 +197,11 @@ with tab3:
 
     st.divider()
     
-    # Add-on Terintegrasi (Heatmap Psikologis)
     st.markdown("**🔍 Investigasi: Apakah Jam AI memicu Kecemasan?**")
     cols_psiko = ['Weekly_GenAI_Hours', 'Perceived_AI_Dependency', 'Anxiety_Level_During_Exams']
     fig_corr2 = px.imshow(df_filtered[cols_psiko].corr().round(2), text_auto=True, color_continuous_scale='Reds', aspect="auto", height=300)
     st.plotly_chart(fig_corr2, use_container_width=True)
 
-# --- TAB 4: RETENSI SKILL ---
 with tab4:
     st.markdown("### Korelasi Retensi Pengetahuan vs Ketergantungan AI")
     st.caption("Menilai apakah semakin bergantung pada AI menyebabkan penurunan kemampuan mempertahankan skill.")
@@ -212,7 +212,7 @@ with tab4:
     )
     st.plotly_chart(fig_retention, use_container_width=True)
 
-# --- TAB 5: PROFIL RISIKO (Actionable Insights) ---
+
 with tab5:
     st.markdown("### Peta Profil Risiko Mahasiswa")
     fig_risk = px.box(
@@ -224,7 +224,6 @@ with tab5:
     
     st.divider()
     
-    # Add-on Terintegrasi (Dataset Actionable: Target Intervensi Bimbingan Konseling)
     st.markdown("**🎯 Tindakan Eksekutif: Daftar Mahasiswa Prioritas (High Burnout & Ketergantungan Tinggi)**")
     st.caption("Tabel di bawah berisi mahasiswa yang membutuhkan intervensi/konseling segera (High Burnout & AI Dependency > 3.0)")
     df_critical = df_filtered[(df_filtered['Burnout_Risk_Level'] == 'High') & (df_filtered['Perceived_AI_Dependency'] > 3.0)]
@@ -234,7 +233,51 @@ with tab5:
         st.success("Bagus! Tidak ada mahasiswa dalam kategori risiko kritis pada filter ini.")
 
 # ==========================================
-# FOOTER
+# TAB 6: INSTITUTIONAL POLICY VS GPA (KDE PLOT)
 # ==========================================
+with tab6:
+    st.markdown("### Pergeseran Distribusi IPK (Pre vs Post) Berdasarkan Kebijakan Kampus")
+    st.caption("Analisis pergeseran titik rata-rata IPK sebelum (merah) dan sesudah (biru) pada tiap lingkungan kebijakan.")
+
+    policies_order = ['Actively_Encouraged', 'Allowed_With_Citation', 'Strict_Ban']
+    available_policies = [p for p in policies_order if p in df_filtered['Institutional_Policy'].unique()]
+
+    if not available_policies:
+        st.info("⚠️ Pilih minimal satu Kebijakan Institusi di sidebar untuk melihat grafik ini.")
+    else:
+        fig, axes = plt.subplots(nrows=len(available_policies), ncols=1, figsize=(10, 4 * len(available_policies)), sharex=True)
+
+        if len(available_policies) == 1:
+            axes = [axes]
+
+        for i, policy in enumerate(available_policies):
+            subset    = df_filtered[df_filtered['Institutional_Policy'] == policy]
+            mean_pre  = subset['Pre_Semester_GPA'].mean()
+            mean_post = subset['Post_Semester_GPA'].mean()
+
+            sns.kdeplot(data=subset, x='Pre_Semester_GPA',  color='red',  ax=axes[i], fill=True, alpha=0.15, linewidth=2, label='Pre GPA'  if i == 0 else "")
+            sns.kdeplot(data=subset, x='Post_Semester_GPA', color='blue', ax=axes[i], fill=True, alpha=0.15, linewidth=2, label='Post GPA' if i == 0 else "")
+
+            axes[i].axvline(mean_pre,  color='red',  linestyle='--', linewidth=2)
+            axes[i].axvline(mean_post, color='blue', linestyle='--', linewidth=2)
+
+            ymax = axes[i].get_ylim()[1]
+            axes[i].text(mean_pre,  ymax * 0.8, f'x̄ Pre = {mean_pre:.2f} ',  color='red',  ha='right', fontsize=11, fontweight='bold')
+            axes[i].text(mean_post, ymax * 0.8, f' x̄ Post = {mean_post:.2f}', color='blue', ha='left',  fontsize=11, fontweight='bold')
+
+            axes[i].set_title(f'Kebijakan: {policy}', fontsize=14, fontweight='bold', loc='left')
+            axes[i].set_ylabel('Density', fontsize=10)
+            axes[i].grid(axis='y', linestyle='--', alpha=0.4)
+
+            if i == 0:
+                axes[i].legend(loc='upper right')
+
+        plt.xlabel('Grade Point Average (GPA)', fontsize=12, fontweight='bold')
+        plt.tight_layout()
+        st.pyplot(fig)
+
+# =============
+# FOOTER
+# =============
 st.markdown("---")
 st.caption("© 2026 | Dibuat untuk Sertifikasi Data Analyst - LSP TIK Global")
